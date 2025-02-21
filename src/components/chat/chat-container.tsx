@@ -93,6 +93,12 @@ export default function ChatContainer() {
   };
 
   const handleSend = async (content: string) => {
+
+    if (!content.trim()) {
+      toast.error("Please enter a message");
+      return;
+    }
+
     try {
       setIsProcessing(true);
 
@@ -140,7 +146,11 @@ export default function ChatContainer() {
     }
 
     const message = messages.find((msg) => msg.id === messageId);
-    if (!message) return;
+
+    if (!message) {
+      toast.error("Message not found");
+      return;
+    }
 
     try {
       const translator = await (window as any).ai.translator.create({
@@ -150,20 +160,17 @@ export default function ChatContainer() {
 
       const translatedText = await translator.translate(message.content);
 
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) => {
-          if (msg.id === messageId) {
-            const updatedMsg: ChatMessage = {
-              ...msg,
-              translations: {
-                ...msg.translations,
-                [targetLanguage]: translatedText,
-              } as Record<Language, string>,
-            };
-            return updatedMsg;
-          }
-          return msg;
-        })
+      const updatedMessage = {
+        ...message,
+        translations: {
+          ...message.translations,
+          [targetLanguage]: translatedText,
+        } as Record<Language, string>,
+      };
+
+      await saveMessage(updatedMessage);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? updatedMessage : m))
       );
     } catch (error) {
       console.error("Error translating message:", error);
@@ -178,12 +185,16 @@ export default function ChatContainer() {
     }
 
     const message = messages.find((msg) => msg.id === messageId);
-    if (!message) return;
+
+    if (!message) {
+      toast.error("Message not found");
+      return;
+    }
 
     try {
       const summarizer = await (window as any).ai.summarizer.create({
         type: "tl;dr",
-        format: "plain-text",
+        format: "markdown",
         length: "short",
       });
 
@@ -233,7 +244,7 @@ export default function ChatContainer() {
     (state) => state.status === "downloading"
   );
 
-  const areModelsReady = Object.values(modelStates).some(
+  const areModelsReady = Object.values(modelStates).every(
     (state) => state.status === "ready"
   );
 

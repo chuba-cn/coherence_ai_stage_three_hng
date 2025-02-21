@@ -50,8 +50,9 @@ export default function MessageInput({ onSend, disabled }: MessageInputProps) {
         placeholder="Type your message..."
         className="min-h-12 max-h-52 resize-none"
         disabled={ disabled }
+        aria-label="Message input"
       />
-      <Button type="submit" size="icon" disabled={ disabled || !content.trim() }>
+      <Button type="submit" size="icon" disabled={ disabled || !content.trim() } aria-label="Send message">
         <Send className="h-4 w-4" />
         <span className="sr-only">Send Message</span>
       </Button>

@@ -101,6 +101,7 @@ export default function MessageActions({
           size="sm"
           onClick={ handleSummarize }
           disabled={ isSummarizing }
+          aria-label="Summarize message"
         >
           {isSummarizing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Summarize

@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import ThemeToggler from "@/components/theme-toggler";
 import ThemeProvider from "@/components/providers/theme-provider";
+import Head from "next/head";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -28,6 +29,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <Head>
+        {process.env.NEXT_PUBLIC_SUMMARIZER_ORIGIN_TRIAL && (
+          <meta
+            httpEquiv="origin-trial"
+            content={process.env.NEXT_PUBLIC_SUMMARIZER_ORIGIN_TRIAL}
+          />
+        )}
+        {process.env.NEXT_PUBLIC_LANGUAGE_DETECTOR_ORIGIN_TRIAL && (
+          <meta
+            httpEquiv="origin-trial"
+            content={process.env.NEXT_PUBLIC_LANGUAGE_DETECTOR_ORIGIN_TRIAL}
+          />
+        )}
+        {process.env.NEXT_PUBLIC_TRANSLATOR_ORIGIN_TRIAL && (
+          <meta
+            httpEquiv="origin-trial"
+            content={process.env.NEXT_PUBLIC_TRANSLATOR_ORIGIN_TRIAL}
+          />
+        )}
+      </Head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans min-h-screen bg-background`}
       >

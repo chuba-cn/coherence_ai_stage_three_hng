@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import MessageInput from "./message-input";
-import MessageItem from "./message-item";
+import {MessageItem} from "./message-item";
 import type { ChatMessage, DetectedLanguage, Language } from "@/types/api";
 import { generateMessageId } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,16 +12,18 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import ModelDownloadProgress from "../model-download-progress";
 import {
   modelManager,
-  type ModelInfo,
+  type ModelInfo as ModelInfoType,
   type ModelType,
 } from "@/lib/model-manager";
 import { dbService } from "@/lib/db";
+import { ModelInfo } from "../model-info";
+
 
 export default function ChatContainer() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [modelStates, setModelStates] = useState<Record<ModelType, ModelInfo>>({
+  const [modelStates, setModelStates] = useState<Record<ModelType, ModelInfoType>>({
     summarizer: { status: "unavailable" },
     translator: { status: "unavailable" },
     languageDetector: { status: "unavailable" },
@@ -228,7 +230,7 @@ export default function ChatContainer() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center p-4">
+      <div className="h-screen flex items-center justify-center p-4 bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
         <Alert>
           <Loader2 className="h-4 w-4 animate-spin" />
           <AlertTitle>Initializing</AlertTitle>
@@ -244,7 +246,7 @@ export default function ChatContainer() {
     (state) => state.status === "downloading"
   );
 
-  const areModelsReady = Object.values(modelStates).every(
+  const areModelsReady = Object.values(modelStates).some(
     (state) => state.status === "ready"
   );
 
@@ -273,7 +275,7 @@ export default function ChatContainer() {
 
   if (!areModelsReady) {
     return (
-      <div className="h-screen flex items-center justify-center p-4">
+      <div className="h-screen flex items-center justify-center p-4 ">
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Models Unavailable</AlertTitle>
@@ -287,7 +289,19 @@ export default function ChatContainer() {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-gradient-to-r from-blue-100 via-blue-300 to-blue-500 py-2">
+        <h1 className="text-2xl text-center font-bold text-blue-800 mb-2">
+          AI-Powered Text Processing
+        </h1>
+      <div className="p-4 bg-white bg-opacity-80 shadow-md max-md:max-h-[30%] overflow-y-scroll">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {(Object.entries(modelStates) as [ModelType, ModelInfoType][]).map(
+            ([type, info]) => (
+              <ModelInfo key={type} type={type} info={info} />
+            )
+          )}
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto p-4">
         {messages.map((message) => (
           <MessageItem
@@ -299,7 +313,7 @@ export default function ChatContainer() {
         ))}
         <div ref={bottomRef} />
       </div>
-      <div className="border-t p-4">
+      <div className="border-t p-4 bg-white bg-opacity-80">
         <MessageInput onSend={handleSend} disabled={isProcessing} />
       </div>
     </div>

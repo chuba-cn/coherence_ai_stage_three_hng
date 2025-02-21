@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
-import ThemeToggler from "@/components/theme-toggler";
-import ThemeProvider from "@/components/providers/theme-provider";
 import Head from "next/head";
 
 const geistSans = localFont({
@@ -50,17 +48,13 @@ export default function RootLayout({
         )}
       </Head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans min-h-screen bg-background`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans min-h-screen bg-gradient-to-r from-blue-100 via-blue-300 to-blue-500`}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <div className="relative">
-            <div className="absolute right-4 top-4 z-50">
-              <ThemeToggler />
-            </div>
-            {children}
-            <Toaster richColors />
-          </div>
-        </ThemeProvider>
+        <div className="relative text-dark dark:text-white">
+          <div className="absolute right-4 top-4 z-50 rounded-full"></div>
+          {children}
+          <Toaster richColors />
+        </div>
       </body>
     </html>
   );

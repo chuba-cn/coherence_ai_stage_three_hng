@@ -70,12 +70,17 @@ class ModelManager {
       switch (type) {
         case "summarizer":
           capabilities = await (window as any).ai.summarizer.capabilities();
+          console.log("capabilities summarizer:", capabilities);
           break;
         case "translator":
           capabilities = await (window as any).ai.translator.capabilities();
+          console.log("capabilities translator:", capabilities);
           break;
         case "languageDetector":
-          capabilities = await (window as any).ai.languageDetector.capabilities();
+          capabilities = await (
+            window as any
+          ).ai.languageDetector.capabilities();
+          console.log("capabilities detector:", capabilities);
           break;
       }
 

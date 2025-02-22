@@ -129,7 +129,7 @@ export default function ChatContainer() {
         id: generateMessageId(),
         content: `I received your message in ${
           detectedLanguage?.detectedLanguage ?? "unknown"
-        } language. You can use the buttons below to translate or summarize it.`,
+        } language. `,
         role: "assistant",
         timestamp: Date.now(),
       };
@@ -195,26 +195,22 @@ export default function ChatContainer() {
       return;
     }
 
-    const message = messages.find((msg) => msg.id === messageId);
-
-    if (!message) {
+    const message = messages.find((m) => m.id === messageId);
+    if (!message || message.role !== "user") {
       toast.error("Invalid message for summarization");
       return;
     }
 
+    let summaryMessage: ChatMessage;
+
     try {
       const summarizer = await (window as any).ai.summarizer.create({
         type: "tl;dr",
-        format: "markdown",
+        format: "plain-text",
         length: "short",
       });
 
-      const stream = await summarizer.summarizeStreaming(message.content);
-
-      let summary = "";
-      let previousLength = 0;
-
-      const summaryMessage: ChatMessage = {
+      summaryMessage = {
         id: generateMessageId(),
         content: "Generating summary...",
         role: "assistant",
@@ -222,28 +218,33 @@ export default function ChatContainer() {
         originalMessageId: messageId,
       };
 
-      await saveMessage(summaryMessage);
       setMessages((prev) => [...prev, summaryMessage]);
 
-      for await (const segment of stream) {
-        const newContent = segment.slice(previousLength);
-        previousLength = segment.length;
-        summary += newContent;
+      const stream = await summarizer.summarizeStreaming(message.content);
 
-        //Updating UI with streaming summary
-        summaryMessage.content = `Summary:\n${summary}`;
+      let summary = "";
+
+      for await (const chunk of stream) {
+        summary += chunk;
+
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === summaryMessage.id ? { ...summaryMessage } : m
+            m.id === summaryMessage.id
+              ? { ...m, content: `Summary:\n${summary}` }
+              : m
           )
         );
       }
 
-      await saveMessage(summaryMessage);
-      await loadRelatedMessages(messageId);
+      const finalSummaryMessage = {
+        ...summaryMessage,
+        content: `Summary:\n${summary}`,
+      };
+      await saveMessage(finalSummaryMessage);
     } catch (error) {
-      console.error("Error summarizing message:", error);
-      toast.error("Failed to summarize message");
+      console.error("Summarization failed: ", error);
+      toast.error("Summarization failed");
+      setMessages((prev) => prev.filter((m) => m.id !== summaryMessage.id));
     }
   };
 

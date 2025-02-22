@@ -11,19 +11,21 @@ import {
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { LANGUAGES, MIN_CHARS_FOR_SUMMARY } from "@/lib/constants";
+import { LANGUAGES } from "@/lib/constants";
 import type { ChatMessage, Language } from "@/types/api";
 
 interface MessageActionsProps {
   message: ChatMessage;
   onTranslate: (lang: Language) => Promise<void>;
   onSummarize: () => Promise<void>;
+  canSummarize: boolean;
 }
 
 export default function MessageActions({
   message,
   onSummarize,
   onTranslate,
+  canSummarize,
 }: MessageActionsProps) {
   
   const [isTranslating, setIsTranslating] = useState(false);
@@ -31,6 +33,11 @@ export default function MessageActions({
   const [selectedLanguage, setSelectedLanguage] = useState<Language>("en");
 
   const handleTranslate = async () => {
+    if (selectedLanguage === message.detectedLanguage?.detectedLanguage) {
+      toast.error("Cannot translate to the same language");
+      return;
+    }
+
     try {
       setIsTranslating(true);
       await onTranslate(selectedLanguage);
@@ -54,32 +61,27 @@ export default function MessageActions({
       toast.success("Summary generated");
     } catch (error) {
       console.error("Error summarizing message:", error);
-      toast.error("Failed to summarize message");
+      toast.error("Failed to generate summary");
     } finally {
       setIsSummarizing(false);
     }
   };
-
-  const showSummarize =
-    message.content.length >= MIN_CHARS_FOR_SUMMARY &&
-    message.detectedLanguage?.detectedLanguage === "en" &&
-    !message.summary;
   
   return (
     <div className="flex flex-wrap gap-2 mt-2">
       <div className="flex items-center gap-2">
         <Select
-          value={ selectedLanguage }
-          onValueChange={ (value: Language) => setSelectedLanguage(value) }
-          disabled={ isTranslating }
+          value={selectedLanguage}
+          onValueChange={(value: Language) => setSelectedLanguage(value)}
+          disabled={isTranslating}
         >
           <SelectTrigger className="w-[8.75rem]">
-            <SelectValue placeholder="Select Language"/>
+            <SelectValue placeholder="Select Language" />
           </SelectTrigger>
           <SelectContent>
-            { LANGUAGES.map((lang) => (
-              <SelectItem key={ lang.value } value={ lang.value }>
-                { lang.label }
+            {LANGUAGES.map((lang) => (
+              <SelectItem key={lang.value} value={lang.value}>
+                {lang.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -87,20 +89,26 @@ export default function MessageActions({
         <Button
           variant="secondary"
           size="sm"
-          onClick={ handleTranslate }
-          disabled={isTranslating && selectedLanguage === message.detectedLanguage?.detectedLanguage}
+          onClick={handleTranslate}
+          disabled={
+            isTranslating ||
+            selectedLanguage === message.detectedLanguage?.detectedLanguage
+          }
+          aria-label={`Translate to ${
+            LANGUAGES.find((l) => l.value === selectedLanguage)?.label
+          }`}
         >
-          { isTranslating && <Loader2 className="w-4 h-4 mr-2 animate-spin" /> }
+          {isTranslating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Translate
         </Button>
       </div>
 
-      { showSummarize && (
+      {canSummarize && (
         <Button
           variant="secondary"
           size="sm"
-          onClick={ handleSummarize }
-          disabled={ isSummarizing }
+          onClick={handleSummarize}
+          disabled={isSummarizing}
           aria-label="Summarize message"
         >
           {isSummarizing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -108,5 +116,5 @@ export default function MessageActions({
         </Button>
       )}
     </div>
-  )
+  );
 }

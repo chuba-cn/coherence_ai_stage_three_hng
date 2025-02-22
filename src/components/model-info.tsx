@@ -2,21 +2,20 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
   modelManager,
-  type ModelInfo,
+  type ModelInfo as ModelInfoType,
   type ModelType,
 } from "@/lib/model-manager";
 import { Loader2, Download, CheckCircle2 } from "lucide-react";
 
 interface ModelInfoProps {
   type: ModelType;
-  info: ModelInfo;
+  info: ModelInfoType;
 }
 
 export function ModelInfo({ type, info }: ModelInfoProps) {
@@ -26,36 +25,44 @@ export function ModelInfo({ type, info }: ModelInfoProps) {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="capitalize">{type} Model</CardTitle>
-        <CardDescription>
+      <CardHeader className="p-3 md:p-4">
+        {" "}
+        <CardTitle className="capitalize text-sm md:text-base">
+          {type} Model
+        </CardTitle>{" "}
+      </CardHeader>
+      <CardContent className="p-3 md:p-4">
+        {" "}
+        <p className="text-xs md:text-sm">
+          {" "}
           {info.status === "ready" && "Ready to use"}
           {info.status === "unavailable" && "Not available"}
           {info.status === "downloading" && "Downloading..."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+        </p>
         {info.status === "downloading" && info.progress && (
-          <div className="flex items-center">
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            <span>
+          <div className="flex items-center mt-1">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />{" "}
+            <span className="text-xs">
               {Math.round((info.progress.loaded / info.progress.total) * 100)}%
               downloaded
             </span>
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="p-3 md:p-4">
+        {" "}
         {info.status === "unavailable" && (
-          <Button onClick={handleDownload}>
-            <Download className="w-4 h-4 mr-2" />
-            Download Model
+          <Button onClick={handleDownload} size="sm" className="text-xs">
+            {" "}
+            <Download className="w-3 h-3 mr-1" />
+            Download
           </Button>
         )}
         {info.status === "ready" && (
-          <Button variant="ghost" className="text-green-500">
-            <CheckCircle2 className="w-4 h-4 mr-2" />
-            Model Ready
+          <Button variant="ghost" size="sm" className="text-xs text-green-500">
+            {" "}
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Ready
           </Button>
         )}
       </CardFooter>

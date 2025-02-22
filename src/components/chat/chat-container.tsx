@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import MessageInput from "./message-input";
-import {MessageItem} from "./message-item";
+import { MessageItem } from "./message-item";
 import type { ChatMessage, DetectedLanguage, Language } from "@/types/api";
 import { generateMessageId } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,16 +17,19 @@ import {
 } from "@/lib/model-manager";
 import { dbService } from "@/lib/db";
 import { ModelInfo } from "../model-info";
-
+import { LANGUAGES } from "@/lib/constants";
+import { canSummarizeMessage } from "@/lib/utils";
 
 export default function ChatContainer() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [modelStates, setModelStates] = useState<Record<ModelType, ModelInfoType>>({
+  const [modelStates, setModelStates] = useState<
+    Record<ModelType, ModelInfoType>
+  >({
     summarizer: { status: "unavailable" },
     translator: { status: "unavailable" },
-    languageDetector: { status: "unavailable" },
+    detector: { status: "unavailable" },
   });
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -63,9 +66,19 @@ export default function ChatContainer() {
     }
   };
 
+  const loadRelatedMessages = async (messageId: string) => {
+    try {
+      const relatedMessages = await dbService.getRelatedMessages(messageId);
+      setMessages((prevMessages) => [...prevMessages, ...relatedMessages]);
+    } catch (error) {
+      console.error("Failed to load related messages: ", error);
+      toast.error("Failed to load related messages");
+    }
+  };
+
   const saveMessage = async (message: ChatMessage) => {
     try {
-      await dbService.saveMessages(message);
+      await dbService.saveMessage(message);
     } catch (error) {
       console.error("Error saving message:", error);
       toast.error("Failed to save message");
@@ -79,7 +92,7 @@ export default function ChatContainer() {
   const detectLanguage = async (
     text: string
   ): Promise<DetectedLanguage | null> => {
-    if (modelStates.languageDetector.status !== "ready") {
+    if (modelStates.detector.status !== "ready") {
       toast.error("Language detection is not available");
       return null;
     }
@@ -90,16 +103,13 @@ export default function ChatContainer() {
       return results[0];
     } catch (error) {
       console.error("Error detecting language:", error);
+      toast.error("Failed to detect language");
       return null;
     }
   };
 
   const handleSend = async (content: string) => {
-
-    if (!content.trim()) {
-      toast.error("Please enter a message");
-      return;
-    }
+    const detectedLanguage = await detectLanguage(content);
 
     try {
       setIsProcessing(true);
@@ -109,12 +119,8 @@ export default function ChatContainer() {
         content,
         role: "user",
         timestamp: Date.now(),
+        detectedLanguage: detectedLanguage ?? undefined,
       };
-
-      const detectedLanguage = await detectLanguage(content);
-      if (detectedLanguage) {
-        userMessage.detectedLanguage = detectedLanguage;
-      }
 
       await saveMessage(userMessage);
       setMessages((prevMessages) => [...prevMessages, userMessage]);
@@ -130,6 +136,8 @@ export default function ChatContainer() {
 
       await saveMessage(assistantMessage);
       setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+
+      await loadRelatedMessages(userMessage.id);
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to process message");
@@ -162,18 +170,19 @@ export default function ChatContainer() {
 
       const translatedText = await translator.translate(message.content);
 
-      const updatedMessage = {
-        ...message,
-        translations: {
-          ...message.translations,
-          [targetLanguage]: translatedText,
-        } as Record<Language, string>,
+      const translationMessage: ChatMessage = {
+        id: generateMessageId(),
+        content: `Translation to ${
+          LANGUAGES.find((lang) => lang.value === targetLanguage)?.label
+        }:\n${translatedText}`,
+        role: "assistant",
+        timestamp: Date.now(),
+        originalMessageId: messageId,
       };
 
-      await saveMessage(updatedMessage);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === messageId ? updatedMessage : m))
-      );
+      await saveMessage(translationMessage);
+      setMessages((prev) => [...prev, translationMessage]);
+      await loadRelatedMessages(messageId);
     } catch (error) {
       console.error("Error translating message:", error);
       toast.error("Failed to translate message");
@@ -189,7 +198,7 @@ export default function ChatContainer() {
     const message = messages.find((msg) => msg.id === messageId);
 
     if (!message) {
-      toast.error("Message not found");
+      toast.error("Invalid message for summarization");
       return;
     }
 
@@ -205,7 +214,16 @@ export default function ChatContainer() {
       let summary = "";
       let previousLength = 0;
 
-      const updatedMessage = { ...message };
+      const summaryMessage: ChatMessage = {
+        id: generateMessageId(),
+        content: "Generating summary...",
+        role: "assistant",
+        timestamp: Date.now(),
+        originalMessageId: messageId,
+      };
+
+      await saveMessage(summaryMessage);
+      setMessages((prev) => [...prev, summaryMessage]);
 
       for await (const segment of stream) {
         const newContent = segment.slice(previousLength);
@@ -213,15 +231,16 @@ export default function ChatContainer() {
         summary += newContent;
 
         //Updating UI with streaming summary
-        updatedMessage.summary = summary;
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === messageId ? updatedMessage : msg
+        summaryMessage.content = `Summary:\n${summary}`;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === summaryMessage.id ? { ...summaryMessage } : m
           )
         );
       }
 
-      await saveMessage(updatedMessage);
+      await saveMessage(summaryMessage);
+      await loadRelatedMessages(messageId);
     } catch (error) {
       console.error("Error summarizing message:", error);
       toast.error("Failed to summarize message");
@@ -289,12 +308,14 @@ export default function ChatContainer() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-r from-blue-100 via-blue-300 to-blue-500 py-2">
-        <h1 className="text-2xl text-center font-bold text-blue-800 mb-2">
+    <div className="flex flex-col h-screen bg-gradient-to-r from-blue-100 via-blue-300 to-blue-500">
+      <div className="p-2 md:p-4 bg-white bg-opacity-80 shadow-md">
+        {" "}
+        <h1 className="text-lg md:text-2xl font-bold text-blue-800 mb-2 md:mb-4">
           AI-Powered Text Processing
-        </h1>
-      <div className="p-4 bg-white bg-opacity-80 shadow-md max-md:max-h-[30%] overflow-y-scroll">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        </h1>{" "}
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
+          {" "}
           {(Object.entries(modelStates) as [ModelType, ModelInfoType][]).map(
             ([type, info]) => (
               <ModelInfo key={type} type={type} info={info} />
@@ -302,18 +323,21 @@ export default function ChatContainer() {
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-2 md:p-4">
+        {" "}
         {messages.map((message) => (
           <MessageItem
             key={message.id}
             message={message}
             onTranslate={(language) => handleTranslate(message.id, language)}
             onSummarize={() => handleSummarize(message.id)}
+            canSummarize={canSummarizeMessage(message)}
           />
         ))}
         <div ref={bottomRef} />
       </div>
-      <div className="border-t p-4 bg-white bg-opacity-80">
+      <div className="border-t p-2 md:p-4 bg-white bg-opacity-80">
+        {" "}
         <MessageInput onSend={handleSend} disabled={isProcessing} />
       </div>
     </div>

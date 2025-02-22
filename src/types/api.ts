@@ -24,4 +24,5 @@ export interface ChatMessage {
   detectedLanguage?: DetectedLanguage;
   translations?: Record<Language, string>;
   summary?: string;
+  originalMessageId?: string
 }
